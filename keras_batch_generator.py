@@ -14,48 +14,27 @@ class KerasBatchGenerator:
         self.num_of_articles = 1
 
     def generate(self):
+        context_generator = self._get_article()
         while True:
-            with open(self.dataset_path) as infile:
-                self.num_of_articles = 1
-                for article in infile:
-                    print (article)
-                    if self.num_of_articles % 2 == 0:
-                        break
-                    self.num_of_articles += 1
-                    print ("WHEEEEE" + str(self.num_of_articles))
-                    words = text_to_word_sequence(article)[:500]
-                    indexes = []
-                    for x in words:
-                        if x in self.vocabulary:
-                            indexes.append(self.vocabulary[x])
-                        else:
-                            indexes.append(0)
+            self.num_of_articles = 1
+            x1 = np.empty((self.batch_size,self.num_corrupt_examples, self.n))
+            x2 = np.empty((self.batch_size,self.n2))
+            y = np.empty((self.batch_size,1))
+            for i in range(self.batch_size):
+                a,b,c =  next(context_generator)
+                x1[i,:] = a
+                x2[i,:] = b
+                y[i,:] = c
 
-                    windows = []
-                    windows.append([indexes[k:k+self.n] for k in range(len(indexes)-self.n-1)][:10])
-                    for r in range(self.num_corrupt_examples-1):
-                        windows.append([ indexes[k:k+self.n-1] + [self.vocabulary[random.choice(list(self.vocabulary.keys()))]] for k in range(len(indexes)-self.n-1)][:10])
-
-                    document = indexes[:self.n2]
-                    x1 = np.empty((len(windows[0]), self.num_corrupt_examples, self.n))
-                    x2 = np.empty((len(windows[0]), self.n2))
-                    y = np.empty((len(windows[0]), 1))
-                    for s in range(len(windows[0])):
-                        f=0
-                        for j,z in enumerate(windows):
-                            x1[s,j,:] = z[f]
-                            y[s, 0] = 1  # don't used
-                        f+=1
-
-                        x2[s, : len(document)] = document
-                    yield [x1, x2], y
+            yield [x1,x2],y
 
 
     def _get_article(self):
         with open(self.dataset_path) as infile:
             self.num_of_articles = 1
             for article in infile:
-                words = text_to_word_sequence(article)
+                words = text_to_word_sequence(article)[:200]
+                print (words)
                 indexes = []
                 for x in words:
                     if x in self.vocabulary:
@@ -63,8 +42,26 @@ class KerasBatchGenerator:
                     else:
                         indexes.append(0)
                 windows = []
-                windows.append([indexes[k:k+self.n-1] for k in range(len(indexes)-self.n-1)])
-                yield article
+                windows.append([indexes[k:k+self.n-1] for k in range(len(indexes)-self.n-1)][:10])
+                for r in range(self.num_corrupt_examples - 1):
+                    windows.append(
+                        [indexes[k:k + self.n - 1] + [self.vocabulary[random.choice(list(self.vocabulary.keys()))]] for
+                         k in range(len(indexes) - self.n - 1)][:10])
+
+
+                document = indexes[:self.n2]
+                for s in range(len(windows[0])):
+                    x1 = np.empty((self.num_corrupt_examples, self.n))
+                    x2 = np.empty((self.n2))
+                    y = np.empty((1))
+                    f = 0
+                    for j, z in enumerate(windows):
+                        x1[j, : len(z[f])] = z[f]
+
+                    y[0] = 1  # don't used
+                    f += 1
+                    x2[: len(document)] = document
+                    yield x1,x2, y
 
 
     def __window(self,seq, n=2):

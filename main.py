@@ -5,7 +5,7 @@ from keras_batch_generator import KerasBatchGenerator
 import os,pickle
 
 
-num_of_articles = 200000 #4648219 # 8
+num_of_articles = 4648219 # 8
 
 dataset_path = "dataset/en-wiki-clean-text.txt"
 vocabulary_path = "dataset/vocabulary.pkl"
@@ -26,10 +26,10 @@ n2 = 100
 m = 50
 num_corrupt_examples = 10
 
-model_builder =BuildModel(n,n2,m,num_corrupt_examples,len(vocabulary))
+model_builder =BuildModel(n,n2,m,num_corrupt_examples,len(vocabulary)+1)
 model,embedding_layer = model_builder.build()
 
-batch_size = 1
+batch_size = 10000
 
 checkpointer = ModelCheckpoint(filepath='model-{epoch:02d}.hdf5', verbose=1)
 
@@ -41,9 +41,11 @@ train_data_generator = KerasBatchGenerator(dataset_path,n,n2,batch_size,vocabula
 
 
 
-results = model.fit_generator(train_data_generator.generate(), num_of_articles // batch_size,
+results = model.fit_generator(train_data_generator.generate(), (num_of_articles*10) // batch_size,
                                    epochs=1,
                                    callbacks=[checkpointer],
+                                   use_multiprocessing=True,
+                                   workers=1
                                  )
 
 embedding_matrix = embedding_layer.get_weights()
